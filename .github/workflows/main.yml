@@ -1,4 +1,4 @@
-name: XY_RDP_ULTIMATE_6H
+name: XY_RDP
 
 on:
   workflow_dispatch:
