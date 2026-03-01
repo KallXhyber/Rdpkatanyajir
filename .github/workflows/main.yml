@@ -1,0 +1,75 @@
+name: XY_RDP_1080P_6HOUR_AUTO
+
+on:
+  workflow_dispatch: # Biar bisa di-run manual
+  schedule:
+    - cron: '0 */6 * * *' # OTOMATIS RUN SETIAP 6 JAM (00:00, 06:00, dst)
+
+jobs:
+  XY_PROJECT:
+    runs-on: windows-latest
+    timeout-minutes: 360 # Maksimal limit GitHub Actions (6 Jam)
+
+    steps:
+      - name: 📥 CHECKOUT XY_PROJECT
+        uses: actions/checkout@v4
+
+      - name: ✅ VALIDASI SECRETS
+        shell: powershell
+        run: |
+          if ([string]::IsNullOrEmpty("${{ secrets.TAILSCALE_AUTH_KEY }}")) {
+            Write-Host "❌ TAILSCALE_AUTH_KEY Belum Diisi di Settings Secrets!" -ForegroundColor Red
+            exit 1
+          }
+
+      - name: 👤 SETUP USER XY (1080p)
+        shell: powershell
+        run: |
+          $password = "${{ secrets.XY_RDP_PASSWORD }}"
+          if ([string]::IsNullOrEmpty($password)) { $password = "XYAdmin1080p!" }
+          
+          $securePass = ConvertTo-SecureString $password -AsPlainText -Force
+          # Branding XY & PoweredBy Kall & XyTeam
+          New-LocalUser -Name "h4ck3r" -Password $securePass -FullName "XY Hacker" -Description "PoweredBy Kall & XyTeam"
+          Add-LocalGroupMember -Group "Administrators" -Member "h4ck3r"
+          
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+          
+          # Force Resolusi 1080p
+          $rdpPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp"
+          Set-ItemProperty -Path $rdpPath -Name "MaxXResolution" -Value 1920
+          Set-ItemProperty -Path $rdpPath -Name "MaxYResolution" -Value 1080
+          
+          Write-Host "✅ User & RDP Ready - PoweredBy Kall & XyTeam" -ForegroundColor Green
+
+      - name: 🔌 TAILSCALE SETUP
+        shell: powershell
+        run: |
+          $url = "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi"
+          $out = "$env:TEMP\tailscale.msi"
+          Invoke-WebRequest -Uri $url -OutFile $out
+          Start-Process msiexec.exe -ArgumentList "/i", "$out", "/quiet", "/norestart" -Wait
+          
+          $tsExe = "C:\Program Files\Tailscale\tailscale.exe"
+          & $tsExe up --authkey="${{ secrets.TAILSCALE_AUTH_KEY }}" --hostname="XY-RDP-1080P"
+          
+          $ip = & $tsExe ip -4
+          Write-Host "🚀 TAILSCALE IP: $ip" -ForegroundColor Cyan
+
+      - name: 🛠️ INSTALL LIGHTSHOT
+        shell: powershell
+        run: |
+          choco install lightshot -y --no-progress
+          Write-Host "✅ Lightshot Ready" -ForegroundColor Green
+
+      - name: ♾️ KEEP ALIVE XY (Safe Window)
+        shell: powershell
+        run: |
+          $start = Get-Date
+          # Jem set ke 345 menit (5 jam 45 menit) supaya ada jeda 15 menit sebelum cron berikutnya jalan
+          while ((Get-Date) -lt $start.AddMinutes(345)) {
+            $publicIp = (Invoke-WebRequest -Uri "https://api.ipify.org" -UseBasicParsing).Content
+            Write-Host "🕒 [$(Get-Date)] XY-RDP ONLINE | IP: $publicIp | Status: Stable" -ForegroundColor Green
+            Start-Sleep -Seconds 120
+          }
