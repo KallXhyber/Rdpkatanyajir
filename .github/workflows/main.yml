@@ -1,4 +1,4 @@
-name: XY_RDP_1080P_6HOUR_AUTO
+name: XYRDP
 
 on:
   workflow_dispatch: # Biar bisa di-run manual
