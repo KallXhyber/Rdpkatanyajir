@@ -1,49 +1,55 @@
-name: XYRDP
+name: XY_RDP_ULTIMATE_6H
 
 on:
-  workflow_dispatch: # Biar bisa di-run manual
+  workflow_dispatch:
   schedule:
-    - cron: '0 */6 * * *' # OTOMATIS RUN SETIAP 6 JAM (00:00, 06:00, dst)
+    - cron: '0 */6 * * *' # Otomatis running setiap 6 jam
 
 jobs:
   XY_PROJECT:
     runs-on: windows-latest
-    timeout-minutes: 360 # Maksimal limit GitHub Actions (6 Jam)
+    timeout-minutes: 360 
 
     steps:
       - name: 📥 CHECKOUT XY_PROJECT
         uses: actions/checkout@v4
 
-      - name: ✅ VALIDASI SECRETS
+      - name: 👤 SETUP USER XY & RDP (1080P)
         shell: powershell
         run: |
-          if ([string]::IsNullOrEmpty("${{ secrets.TAILSCALE_AUTH_KEY }}")) {
-            Write-Host "❌ TAILSCALE_AUTH_KEY Belum Diisi di Settings Secrets!" -ForegroundColor Red
-            exit 1
-          }
-
-      - name: 👤 SETUP USER XY (1080p)
-        shell: powershell
-        run: |
+          # Password default: XYAdmin1080p! (Bisa diganti lewat GitHub Secrets)
           $password = "${{ secrets.XY_RDP_PASSWORD }}"
           if ([string]::IsNullOrEmpty($password)) { $password = "XYAdmin1080p!" }
           
           $securePass = ConvertTo-SecureString $password -AsPlainText -Force
-          # Branding XY & PoweredBy Kall & XyTeam
-          New-LocalUser -Name "h4ck3r" -Password $securePass -FullName "XY Hacker" -Description "PoweredBy Kall & XyTeam"
-          Add-LocalGroupMember -Group "Administrators" -Member "h4ck3r"
+          New-LocalUser -Name "haekal" -Password $securePass -FullName "XYkell" -Description "PoweredBy Kall & XyTeam"
+          Add-LocalGroupMember -Group "Administrators" -Member "haekal"
           
+          # Aktifkan Remote Desktop
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
           
-          # Force Resolusi 1080p
+          # Force Resolusi ke 1080p
           $rdpPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp"
           Set-ItemProperty -Path $rdpPath -Name "MaxXResolution" -Value 1920
           Set-ItemProperty -Path $rdpPath -Name "MaxYResolution" -Value 1080
-          
-          Write-Host "✅ User & RDP Ready - PoweredBy Kall & XyTeam" -ForegroundColor Green
+          Write-Host "✅ User h4ck3r & RDP 1080p Ready! - PoweredBy Kall & XyTeam" -ForegroundColor Green
 
-      - name: 🔌 TAILSCALE SETUP
+      - name: 📦 INSTALL & UPDATE TOOLS (VSCode, Spotify, Lightshot)
+        shell: powershell
+        run: |
+          Set-ExecutionPolicy Bypass -Scope Process -Force
+          if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
+            iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+          }
+          Write-Host "🔄 Upgrading all existing tools..." -ForegroundColor Cyan
+          choco upgrade all -y --no-progress
+          
+          Write-Host "🚀 Installing VSCode, Spotify, and Lightshot..." -ForegroundColor Cyan
+          choco install vscode spotify lightshot -y --no-progress
+          Write-Host "✅ All tools are ready to use!" -ForegroundColor Green
+
+      - name: 🔌 TAILSCALE SETUP (MagicDNS Enabled)
         shell: powershell
         run: |
           $url = "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi"
@@ -52,24 +58,21 @@ jobs:
           Start-Process msiexec.exe -ArgumentList "/i", "$out", "/quiet", "/norestart" -Wait
           
           $tsExe = "C:\Program Files\Tailscale\tailscale.exe"
-          & $tsExe up --authkey="${{ secrets.TAILSCALE_AUTH_KEY }}" --hostname="XY-RDP-1080P"
+          # Hostname statis agar MagicDNS 'xy-rdp-powered' selalu aktif
+          & $tsExe up --authkey="${{ secrets.TAILSCALE_AUTH_KEY }}" --hostname="haekal" --accept-routes --reset
           
           $ip = & $tsExe ip -4
-          Write-Host "🚀 TAILSCALE IP: $ip" -ForegroundColor Cyan
+          Write-Host "🚀 TAILSCALE CONNECTED | IP: $ip" -ForegroundColor Cyan
 
-      - name: 🛠️ INSTALL LIGHTSHOT
-        shell: powershell
-        run: |
-          choco install lightshot -y --no-progress
-          Write-Host "✅ Lightshot Ready" -ForegroundColor Green
-
-      - name: ♾️ KEEP ALIVE XY (Safe Window)
+      - name: ♾️ KEEP ALIVE XY (6 Hours Cycle)
         shell: powershell
         run: |
           $start = Get-Date
-          # Jem set ke 345 menit (5 jam 45 menit) supaya ada jeda 15 menit sebelum cron berikutnya jalan
+          Write-Host "🚀 XY-RDP Instance is now ONLINE." -ForegroundColor Green
+          Write-Host "🔗 Connect via MagicDNS: xy-rdp-powered" -ForegroundColor Cyan
+          
           while ((Get-Date) -lt $start.AddMinutes(345)) {
-            $publicIp = (Invoke-WebRequest -Uri "https://api.ipify.org" -UseBasicParsing).Content
-            Write-Host "🕒 [$(Get-Date)] XY-RDP ONLINE | IP: $publicIp | Status: Stable" -ForegroundColor Green
-            Start-Sleep -Seconds 120
+            $currentIp = (Invoke-WebRequest -Uri "https://api.ipify.org" -UseBasicParsing).Content
+            Write-Host "🕒 [$(Get-Date)] STATUS: ACTIVE | PUBLIC-IP: $currentIp | HOST: XY-RDP-POWERED" -ForegroundColor Green
+            Start-Sleep -Seconds 180
           }
